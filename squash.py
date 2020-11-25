@@ -6,6 +6,11 @@ import subprocess
 # https://schacon.github.io/git/git.html#_low_level_commands_plumbing
 CLIencoding = 'utf16'
 
+def nyi(thing):
+    print(f'{thing} not yet implemented. Exiting.')
+    exit(0)
+
+
 def run(args):
 
     argsdict = parseargs(args)
@@ -20,29 +25,68 @@ def run(args):
 
     oldbranch = get_cur_branch()
 
-    if p_squash_branch_exists(branch):
-        print('Squash branch exists locally.')
-    else:
-        print(f'No local squash branch for {branch}. Maybe in remotes?')
-        if p_branch_exists(f'refs/remotes/origin/{branch}'):
-            pass
-            print('branch exists on remote repo')
+    if p_branch_exists(f'refs/heads/{branch}squash'):
+
+        print(f'Squash branch for {branch} exists locally.')
+
+        if p_branch_exists(f'refs/remotes/origin/{branch}squash'):
+            print(f'Squash branch for {branch} exists on remote.')
+            # Pull, Figure out new base commit, Rebase.   Conflicts? Think through...
+            nyi('')
+            
         else:
-            pass
-            print('branch doesn\'t exist on remote repo')
+            print(f'Squash branch for {branch} doesn\'t exist on remote.')
+            # Figure out new base commit, Rebase.
+            nyi('')
 
-    # print_git_log_graph()
+    else:
+
+        print(f'Squash branch for {branch} doesn\'t exist locally.')
+
+        if p_branch_exists(f'refs/remotes/origin/{branch}squash'):
+            print(f'Squash branch for {branch} exists on remote.')
+            # Pull, Figure out new base commit, Rebase.
+            nyi('')
+
+        else:
+            print(f'Squash branch for {branch} doesn\'t exist on remote.')
+            # Create, Rebase.   Easy case, start with this.
+            # squashbranch = create_squash_branch(branch)
+            # checkout_branch(squashbranch)
+
+            base_commit = get_parent_commit(commit)
+            commit_list = get_unique_commits(branch, get_local_branch_list())
+            squashed_commits = commit_list[:commit_list.index(commit)]
+            print(squashed_commits)
+            # head_offset = commit_list.index(base_commit)
+            
+            # squash_to(base_commit, squashed_commits)
 
 
-def p_squash_branch_exists(branch):
-    if f'{branch}squash' in get_local_branch_list():
-        return True
-    return False
+    #print_git_log_graph()
 
 
-def git_checkout_squash_branch_from(branch):
-    pass
-        # subprocess.Popen(['git', 'checkout', f'{branch}']).communicate()
+def squash_to(base_commit):
+    subprocess.Popen(['git', 'reset', '--soft', f'{base_commit}']).communicate()
+    subprocess.Popen(['git', 'reset', '--soft', f'{base_commit}']).communicate()
+
+
+def get_parent_commit(commitish):
+    out, err = subprocess.Popen(['git', 'rev-parse', '--short', f'{commitish}^'], stdout=subprocess.PIPE, stderr=subprocess.PIPE).communicate()
+    return format_subprocess_stdout(out)
+
+
+def checkout_branch(branch):
+    out, err = subprocess.Popen(['git', 'checkout', f'{branch}'], stdout=subprocess.PIPE, stderr=subprocess.PIPE).communicate()
+    if format_subprocess_stdout(out).startswith('error'):
+        print(format_subprocess_stdout(out))
+        print('Exiting.')
+        exit(-1)
+
+
+def create_squash_branch(branch):
+    subprocess.Popen(['git', 'branch', f'{branch}squash']).communicate()
+    return f'{branch}squash'
 
 
 def print_git_log_graph():
@@ -57,8 +101,6 @@ def print_git_log_graph():
 
     for line in graph:
         print(line)
-
-    
 
 
 def validate_and_format_args(repopath, branch, commit):
@@ -107,7 +149,8 @@ def get_unique_commits(branch, branchlist):
     command = ['git', 'rev-list', '--abbrev-commit', f'{branch}']
 
     for branch_to_omit in locallist:
-        command.append(f'^{branch_to_omit}') # Result: git rev-list branch_to_include ^branch_to_omit
+        if branch_to_omit != f'{branch}squash':
+            command.append(f'^{branch_to_omit}') # Result: git rev-list branch_to_include ^branch_to_omit
 
     out, err = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE).communicate()
     out = format_subprocess_stdout(out)
@@ -115,13 +158,10 @@ def get_unique_commits(branch, branchlist):
     return out.splitlines()
 
 
-
-
 def print_processed_args(repo, branch, commit):
-    print(f'REPO: {repo}')
-    print(f'BRANCH: {branch}')
-    print(f'COMMIT: {commit}')
-
+    print(f'\nREPO:\t{repo}')
+    print(f'BRANCH:\t{branch}')
+    print(f'COMMIT:\t{commit}\n')
 
 
 def parseargs(args):
@@ -135,7 +175,6 @@ def parseargs(args):
     parser.add_argument('-c', type=str, dest='COMMIT', default='DEFAULT', help='Commitish of the first commit to be included in squash. Default: The child of the most recent commit that is not unique to the branch specified by -b.')
 
     return parser.parse_args()
-
 
 
 def get_cur_branch():
@@ -168,7 +207,9 @@ def p_branch_exists(branch):
     out, err = subprocess.Popen(['git', 'show-ref', '--verify', f'{branch}'], stdout=subprocess.PIPE, stderr=subprocess.PIPE).communicate()
     out = format_subprocess_stdout(out)
 
-    print(out)
+    if out.endswith('squash'):
+        return True
+    return False
 
 
 def format_subprocess_stdout(stdout):
