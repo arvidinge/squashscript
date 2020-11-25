@@ -20,7 +20,7 @@ def run(args):
 
     # Save to restore at exit
     # git_stash_all() 
-    originalbranch = get_cur_branch()
+    originalbranch = get_cur_branch().replace('refs/heads/','')
 
 
     if p_branch_exists(f'refs/heads/{branch}squash'):
@@ -30,12 +30,12 @@ def run(args):
         if p_branch_exists(f'refs/remotes/origin/{branch}squash'):
             print(f'Squash branch for {branch} exists on remote.')
             # Pull, Figure out new base commit, Rebase.   Conflicts? Think through...
-            raise NotImplementedError()
+            raise NotImplementedError("Pull, Figure out new base commit, Rebase.   Conflicts? Think through...")
             
         else:
             print(f'Squash branch for {branch} doesn\'t exist on remote.')
             # Figure out new base commit, Rebase.
-            raise NotImplementedError()
+            raise NotImplementedError("Figure out new base commit, Rebase.")
 
     else:
 
@@ -44,7 +44,7 @@ def run(args):
         if p_branch_exists(f'refs/remotes/origin/{branch}squash'):
             print(f'Squash branch for {branch} exists on remote.')
             # Pull, Figure out new base commit, Rebase.
-            raise NotImplementedError()
+            raise NotImplementedError("Pull, Figure out new base commit, Rebase.")
 
         else:
             print(f'Squash branch for {branch} doesn\'t exist on remote.')
@@ -64,6 +64,8 @@ def run(args):
     git_stash_pop()
 
     print_git_log_graph()
+
+    print(f'\n\nNB: Recent commits at the bottom in above graph.')
 
 
 def git_stash_all():
@@ -115,7 +117,8 @@ def create_squash_branch(branch):
 
 
 def print_git_log_graph():
-    proc = subprocess.Popen(['git', '--no-pager', 'log', '--graph', '--abbrev-commit', '--decorate', "--format=format:%C(bold blue)%h%C(reset) - %C(bold cyan)%aD%C(reset) %C(bold green)(%ar)%C(reset)%C(bold yellow)%d%C(reset)%n          %C(white)%<(85,trunc)%s%C(reset) %C(dim white)- %an%C(reset)", '--all'], stdout=subprocess.PIPE, stderr=None, shell=True)
+    # proc = subprocess.Popen(['git', '--no-pager', 'log', '--graph', '--abbrev-commit', '--decorate', "--format=format:%C(bold blue)%h%C(reset) - %C(bold cyan)%aD%C(reset) %C(bold green)(%ar)%C(reset)%C(bold yellow)%d%C(reset)%n          %C(white)%<(85,trunc)%s%C(reset) %C(dim white)- %an%C(reset)", '--all'], stdout=subprocess.PIPE, stderr=None, shell=True)
+    proc = subprocess.Popen(['git', '--no-pager', 'log', '--graph', '--abbrev-commit', '--decorate', "--format=format:%C(bold blue)%h%C(reset) - %C(bold green)(%ar)%C(reset) %C(white)%<(25,trunc)%s%C(reset) %C(dim white)- %an%C(reset)%C(bold yellow)%d%C(reset)", '--all'], stdout=subprocess.PIPE, stderr=None, shell=True)
     out = proc.communicate()[0] # input=bytes('q\n', encoding=CLIencoding) doesn't seem to cancel git log's prompt...
     out = format_subprocess_stdout(out)
     graph = out.splitlines()
