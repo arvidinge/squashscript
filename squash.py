@@ -4,7 +4,7 @@ import argparse
 import subprocess
 
 # https://schacon.github.io/git/git.html#_low_level_commands_plumbing
-CLIencoding = 'utf16'
+CLIencoding = 'utf8'
 
 
 def run(args):
@@ -57,7 +57,7 @@ def run(args):
             commit_list = get_unique_commits(branch, get_local_branch_list())
             squashed_commits = commit_list[:commit_list.index(commit)+1]
             
-            squash_to(base_commit, squashed_commits)
+            reset_soft_to(base_commit, squashed_commits)
     
     # Restore workspace state
     checkout_branch(originalbranch)
@@ -65,7 +65,7 @@ def run(args):
 
     print_git_log_graph()
 
-    print(f'\n\nNB: Recent commits at the bottom in above graph.')
+    print(f'NB: Recent commits at the bottom in above graph.\n')
 
 
 def git_stash_all():
@@ -75,7 +75,7 @@ def git_stash_pop():
     subprocess.Popen(['git', 'stash', 'pop']).communicate()
 
 
-def squash_to(base_commit, squashed_commits):
+def reset_soft_to(base_commit, squashed_commits):
     subprocess.Popen(['git', 'reset', '--soft', f'{base_commit}']).communicate()
     subprocess.Popen(['git', 'commit', '-m', f'{construct_message(squashed_commits)}']).communicate()
 
@@ -117,18 +117,21 @@ def create_squash_branch(branch):
 
 
 def print_git_log_graph():
-    # proc = subprocess.Popen(['git', '--no-pager', 'log', '--graph', '--abbrev-commit', '--decorate', "--format=format:%C(bold blue)%h%C(reset) - %C(bold cyan)%aD%C(reset) %C(bold green)(%ar)%C(reset)%C(bold yellow)%d%C(reset)%n          %C(white)%<(85,trunc)%s%C(reset) %C(dim white)- %an%C(reset)", '--all'], stdout=subprocess.PIPE, stderr=None, shell=True)
-    proc = subprocess.Popen(['git', '--no-pager', 'log', '--graph', '--abbrev-commit', '--decorate', "--format=format:%C(bold blue)%h%C(reset) - %C(bold green)(%ar)%C(reset) %C(white)%<(25,trunc)%s%C(reset) %C(dim white)- %an%C(reset)%C(bold yellow)%d%C(reset)", '--all'], stdout=subprocess.PIPE, stderr=None, shell=True)
-    out = proc.communicate()[0] # input=bytes('q\n', encoding=CLIencoding) doesn't seem to cancel git log's prompt...
-    out = format_subprocess_stdout(out)
+    print()
+    out, err = subprocess.Popen(['git', '--no-pager', 'log', '--graph', '--abbrev-commit', '--decorate', "--format=format:%C(bold blue)%h%C(reset) - %C(bold green)(%ar)%C(reset) %C(white)%<(25,trunc)%s%C(reset) %C(dim white)- %an%C(reset)%C(bold yellow)%d%C(reset)", '--all'], stdout=subprocess.PIPE, stderr=None, shell=True).communicate()
+    out = format_subprocess_stdout(str(out, encoding=CLIencoding) + '\n')
+
     graph = out.splitlines()
     graph.reverse()
+
     for i in range(len(graph)):
-        pass
         graph[i] = graph[i].replace('\\\\', '\\').replace('\\', '¤').replace('/', '\\').replace('¤', '/')
 
     for line in graph:
         print(line)
+
+    print()
+
 
 
 def validate_and_format_args(repopath, branch, commit):
