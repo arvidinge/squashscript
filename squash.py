@@ -19,7 +19,7 @@ def run(args):
     print_processed_args(repopath, branch, commit)
 
     # Save to restore at exit
-    git_stash_all() 
+    # git_stash_all() 
     originalbranch = get_cur_branch()
 
 
@@ -79,21 +79,26 @@ def squash_to(base_commit, squashed_commits):
 
 
 def construct_message(squashed_commits):
-    retstr = f'Combined {len(squashed_commits)} commits: \r\n\r\n'
-    for i in range(len(squashed_commits)):
+    retstr = f'squash.py: Auto combined {len(squashed_commits)} commits: \r\n\r\n'
+    for i in range(len(squashed_commits) - 1):
         retstr += f'{i+1}: {squashed_commits[i]} {get_commit_message(squashed_commits[i])}\r\n'
     return retstr
 
 
 def get_commit_message(commitish):
     out, err = subprocess.Popen(['git', 'rev-list', '--format=%B', '--max-count=1', f'{commitish}^'], stdout=subprocess.PIPE, stderr=subprocess.PIPE).communicate()
-    out = format_subprocess_stdout(out).splitlines()[-1]
-    return format_subprocess_stdout(out)
+    out = format_subprocess_stdout(out).splitlines() 
+    if type(out) is list:
+        return out[-1]
 
 
 def get_parent_commit(commitish):
     out, err = subprocess.Popen(['git', 'rev-parse', '--short', f'{commitish}^'], stdout=subprocess.PIPE, stderr=subprocess.PIPE).communicate()
-    return format_subprocess_stdout(out)
+    out = format_subprocess_stdout(out)
+    if len(out) > 7: # Normal
+        return out
+    return commitish # Initial commit has no parent
+    
 
 
 def checkout_branch(branch):
