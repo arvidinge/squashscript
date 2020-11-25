@@ -16,10 +16,12 @@ def run(args):
     commit = vars(argsdict)['COMMIT']
 
     repopath, branch, commit = validate_and_format_args(repopath, branch, commit)
-
     print_processed_args(repopath, branch, commit)
 
+    # Save to restore at exit
+    git_stash_all() 
     originalbranch = get_cur_branch()
+
 
     if p_branch_exists(f'refs/heads/{branch}squash'):
 
@@ -54,15 +56,21 @@ def run(args):
             base_commit = get_parent_commit(commit)
             commit_list = get_unique_commits(branch, get_local_branch_list())
             squashed_commits = commit_list[:commit_list.index(commit)+1]
-            # print(f'squash these: {squashed_commits}')
-            # print(f'onto base: {base_commit}')
-
-            # print(f'Message: {construct_message(squashed_commits)}') #DEBUG
             
             squash_to(base_commit, squashed_commits)
-        
+    
+    # Restore workspace state
     checkout_branch(originalbranch)
+    git_stash_pop()
+
     print_git_log_graph()
+
+
+def git_stash_all():
+    subprocess.Popen(['git', 'stash', '--all']).communicate()
+
+def git_stash_pop():
+    subprocess.Popen(['git', 'stash', 'pop']).communicate()
 
 
 def squash_to(base_commit, squashed_commits):
