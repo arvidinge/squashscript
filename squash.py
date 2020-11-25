@@ -6,10 +6,6 @@ import subprocess
 # https://schacon.github.io/git/git.html#_low_level_commands_plumbing
 CLIencoding = 'utf16'
 
-def nyi(thing):
-    print(f'{thing} not yet implemented. Exiting.')
-    exit(0)
-
 
 def run(args):
 
@@ -23,7 +19,7 @@ def run(args):
 
     print_processed_args(repopath, branch, commit)
 
-    oldbranch = get_cur_branch()
+    originalbranch = get_cur_branch()
 
     if p_branch_exists(f'refs/heads/{branch}squash'):
 
@@ -32,12 +28,12 @@ def run(args):
         if p_branch_exists(f'refs/remotes/origin/{branch}squash'):
             print(f'Squash branch for {branch} exists on remote.')
             # Pull, Figure out new base commit, Rebase.   Conflicts? Think through...
-            nyi('')
+            raise NotImplementedError()
             
         else:
             print(f'Squash branch for {branch} doesn\'t exist on remote.')
             # Figure out new base commit, Rebase.
-            nyi('')
+            raise NotImplementedError()
 
     else:
 
@@ -46,29 +42,45 @@ def run(args):
         if p_branch_exists(f'refs/remotes/origin/{branch}squash'):
             print(f'Squash branch for {branch} exists on remote.')
             # Pull, Figure out new base commit, Rebase.
-            nyi('')
+            raise NotImplementedError()
 
         else:
             print(f'Squash branch for {branch} doesn\'t exist on remote.')
             # Create, Rebase.   Easy case, start with this.
-            # squashbranch = create_squash_branch(branch)
-            # checkout_branch(squashbranch)
+
+            squashbranch = create_squash_branch(branch)
+            checkout_branch(squashbranch)
 
             base_commit = get_parent_commit(commit)
             commit_list = get_unique_commits(branch, get_local_branch_list())
-            squashed_commits = commit_list[:commit_list.index(commit)]
-            print(squashed_commits)
-            # head_offset = commit_list.index(base_commit)
+            squashed_commits = commit_list[:commit_list.index(commit)+1]
+            # print(f'squash these: {squashed_commits}')
+            # print(f'onto base: {base_commit}')
+
+            # print(f'Message: {construct_message(squashed_commits)}') #DEBUG
             
-            # squash_to(base_commit, squashed_commits)
+            squash_to(base_commit, squashed_commits)
+        
+    checkout_branch(originalbranch)
+    print_git_log_graph()
 
 
-    #print_git_log_graph()
-
-
-def squash_to(base_commit):
+def squash_to(base_commit, squashed_commits):
     subprocess.Popen(['git', 'reset', '--soft', f'{base_commit}']).communicate()
-    subprocess.Popen(['git', 'reset', '--soft', f'{base_commit}']).communicate()
+    subprocess.Popen(['git', 'commit', '-m', f'{construct_message(squashed_commits)}']).communicate()
+
+
+def construct_message(squashed_commits):
+    retstr = f'Combined {len(squashed_commits)} commits: \r\n\r\n'
+    for i in range(len(squashed_commits)):
+        retstr += f'{i+1}: {squashed_commits[i]} {get_commit_message(squashed_commits[i])}\r\n'
+    return retstr
+
+
+def get_commit_message(commitish):
+    out, err = subprocess.Popen(['git', 'rev-list', '--format=%B', '--max-count=1', f'{commitish}^'], stdout=subprocess.PIPE, stderr=subprocess.PIPE).communicate()
+    out = format_subprocess_stdout(out).splitlines()[-1]
+    return format_subprocess_stdout(out)
 
 
 def get_parent_commit(commitish):
@@ -123,8 +135,11 @@ def validate_and_format_args(repopath, branch, commit):
     # if not branch.startswith('refs/heads/'): # arg to script can be "-b refs/heads/feature" or just "-b feature"
     branch = branch.replace(f'refs/heads/', '')
 
+    if str(branch).endswith("squash"):
+        print(f'Currently checked out branch is a squash branch: {branch}. Exiting.')
+        exit(-1)
+
     localbranches = get_local_branch_list()
-    
     if branch not in localbranches:
         print(f'{branch} is not a local branch. Exiting.')
         exit(-1)
@@ -135,7 +150,7 @@ def validate_and_format_args(repopath, branch, commit):
         commit = branchcommits[-1] # Oldest unique commit ("bottom" of branch)
     
     if commit not in branchcommits:
-        print(f'{commit} is not a commit, or is not unique to branch {branch}. Exiting.')
+        print(f'{commit} is not a commit, or is not unique to branch {branch}. \nBranchcommits: {branchcommits}\nExiting.')
         exit(-1)
     
 
