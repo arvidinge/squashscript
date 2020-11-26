@@ -63,6 +63,8 @@ def run(args):
                 reset_soft_to(base_commit, squashed_commits)
     except:
         # Reset local repo to original state
+        print('Error raised!')
+        print('RESET THE REPO TO ORIGINAL STATE! Not yet implemented programmatically.')
         pass
     finally:
         # Restore workspace state
