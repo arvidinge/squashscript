@@ -4,7 +4,7 @@ import argparse
 import subprocess
 from gitplumbing import get_cur_branch, p_branch_exists, create_squash_branch, checkout_branch, \
                         get_parent_commit, get_unique_commits, get_local_branch_list, \
-                        reset_soft_to, stash_pop, print_git_log_graph
+                        reset_soft_to, stash_all, stash_pop, print_git_log_graph
 
 CLIencoding = 'utf8'
 
@@ -22,51 +22,54 @@ def run(args):
     print_processed_args(repopath, branch, commit)
 
     # Save to restore at exit
-    # git_stash_all() 
+    stash_all() 
     originalbranch = get_cur_branch().replace('refs/heads/','')
 
+    try:
+        if p_branch_exists(f'refs/heads/{branch}squash'):
 
-    if p_branch_exists(f'refs/heads/{branch}squash'):
+            print(f'Squash branch for {branch} exists locally.')
 
-        print(f'Squash branch for {branch} exists locally.')
-
-        if p_branch_exists(f'refs/remotes/origin/{branch}squash'):
-            print(f'Squash branch for {branch} exists on remote.')
-            # 11: Pull, Figure out new base commit, Rebase.   Conflicts? Think through...
-            raise NotImplementedError("11: Pull, Figure out new base commit, Rebase.   Conflicts? Think through...")
-            
-        else:
-            print(f'Squash branch for {branch} doesn\'t exist on remote.')
-            # 10: Figure out new base commit, Rebase.
-            raise NotImplementedError("10: Figure out new base commit, Rebase.")
-
-    else:
-
-        print(f'Squash branch for {branch} doesn\'t exist locally.')
-
-        if p_branch_exists(f'refs/remotes/origin/{branch}squash'):
-            print(f'Squash branch for {branch} exists on remote.')
-            # 01: Pull, Figure out new base commit, Rebase.
-            raise NotImplementedError("01: Pull, Figure out new base commit, Rebase.")
+            if p_branch_exists(f'refs/remotes/origin/{branch}squash'):
+                print(f'Squash branch for {branch} exists on remote.')
+                # 11: Pull, Figure out new base commit, Rebase.   Conflicts? Think through...
+                raise NotImplementedError("11: Pull, Figure out new base commit, Rebase.   Conflicts? Think through...")
+                
+            else:
+                print(f'Squash branch for {branch} doesn\'t exist on remote.')
+                # 10: Figure out new base commit, Rebase.
+                raise NotImplementedError("10: Figure out new base commit, Rebase.")
 
         else:
-            print(f'Squash branch for {branch} doesn\'t exist on remote.')
-            # 00: Create branch, soft reset to first commit in squash, commit.   Easy case, start with this.
 
-            squashbranch = create_squash_branch(branch)
-            checkout_branch(squashbranch)
+            print(f'Squash branch for {branch} doesn\'t exist locally.')
 
-            base_commit = get_parent_commit(commit)
-            commit_list = get_unique_commits(branch, get_local_branch_list())
-            squashed_commits = commit_list[:commit_list.index(commit)+1]
-            
-            reset_soft_to(base_commit, squashed_commits)
-    
-    # Restore workspace state
-    checkout_branch(originalbranch)
-    stash_pop()
+            if p_branch_exists(f'refs/remotes/origin/{branch}squash'):
+                print(f'Squash branch for {branch} exists on remote.')
+                # 01: Pull, Figure out new base commit, Rebase.
+                raise NotImplementedError("01: Pull, Figure out new base commit, Rebase.")
 
-    print_git_log_graph()
+            else:
+                print(f'Squash branch for {branch} doesn\'t exist on remote.')
+                # 00: Create branch, soft reset to parent of first commit in range, commit.   Easy case, start with this.
+
+                squashbranch = create_squash_branch(branch)
+                checkout_branch(squashbranch)
+
+                base_commit = get_parent_commit(commit)
+                commit_list = get_unique_commits(branch, get_local_branch_list())
+                squashed_commits = commit_list[:commit_list.index(commit)+1]
+                
+                reset_soft_to(base_commit, squashed_commits)
+    except:
+        # Reset local repo to original state
+        pass
+    finally:
+        # Restore workspace state
+        checkout_branch(originalbranch)
+        stash_pop()
+
+    print_git_log_graph(squashbranch)
 
     print(f'NB: Recent commits at the bottom in above graph.\n')
 

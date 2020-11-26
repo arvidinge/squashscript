@@ -3,6 +3,7 @@ import os
 import argparse
 import subprocess
 from util import format_subprocess_stdout
+import re
 
 # DOCUMENTATION:
 # https://schacon.github.io/git/git.html#_low_level_commands_plumbing
@@ -64,26 +65,39 @@ def print_git_log_graph(head_in_focus=None):
 
     graph = out.splitlines()
     graph.reverse()
-    
+
     # If head to focus graph display around given, truncate lines around it and emphasize head's line ( <<<<< ).
     # Else, focus graph on last line.
     maxlines = 16
 
+    head_short_sha = None
+    if head_in_focus is not None:
+        head_short_sha = get_ref_shortsha(f'refs/heads/{head_in_focus}')
+
     focusindex = len(graph)-1
     for i in range(len(graph)):
-        graph[i] = graph[i].replace('\\\\', '\\').replace('\\', '¤').replace('/', '\\').replace('¤', '/')
+        graph[i] = graph[i].replace('\\\\', '\\').replace('\\', '¤').replace('/', '\\').replace('¤', '/') # Flip slashes after reverse
 
-        if type(head_in_focus) is str and head_in_focus in graph[i]: # Line with the new squash commit
+        # if head_in_focus != '' and re.match(rf'.*(?:HEAD\s-\>\s|\,\s|\(){head_in_focus}(?:\,\s|\)).*', graph[i]): # Line with the new squash commit
+        if (head_short_sha is not None) and (head_short_sha in graph[i]): # Line with the new squash commit
+        # if head_in_focus != '' and re.match(rf'.*HEAD.*', graph[i]): # Line with the new squash commit
             focusindex = i
             graph[i] += f'       <<<<< Squashed commit(s) to {head_in_focus}' # Emphasize the line
-    
-    graph = graph[(0 if focusindex<(maxlines/2) else int(focusindex-(maxlines/2))) : (int(len(graph)) if abs(len(graph)-focusindex) < (maxlines/2) else int(focusindex+(maxlines/2)))]
+
+    endprintindex = (int(len(graph)) if abs(len(graph)-focusindex) < (maxlines/2) else int(focusindex+(maxlines/2)))
+    startprintindex = (0 if focusindex<(maxlines/2) else int(focusindex-abs(maxlines-abs(endprintindex-focusindex))))
+    originalgraphlen = len(graph)
+
+    graph = graph[startprintindex : endprintindex]
 
     if not focusindex<(maxlines/2): # Start was truncated
         print(f'GIT LOG GRAPH:\n...')
     for line in graph:
         print(line)
-    if not abs(len(graph)-focusindex) < (maxlines/2): # End was truncated
+    # print(f'originalgraphlen = {originalgraphlen}')
+    # print(f'focusindex = {focusindex}')
+    # print(f'(maxlines/2) = {(maxlines/2)}')
+    if not abs(originalgraphlen-focusindex) < (maxlines/2): # End was truncated
         print(f'...')
 
     print()
@@ -137,6 +151,17 @@ def get_branch_name_from_ref(sha):
     return format_subprocess_stdout(out)
 
 
+def get_ref_shortsha(branch):
+    out, err = subprocess.Popen(['git', 'show-ref', '--hash=7', f'{branch}'], stdout=subprocess.PIPE, stderr=subprocess.PIPE).communicate()
+    out = format_subprocess_stdout(out)
+    if len(out.splitlines()) > 1:
+        raise NotImplementedError(f'Multiple entries for \"git show-ref {branch}\".')
+
+    if len(out) > 0:
+        return out
+    return None
+
+
 def p_branch_exists(branch):
     out, err = subprocess.Popen(['git', 'show-ref', '--verify', f'{branch}'], stdout=subprocess.PIPE, stderr=subprocess.PIPE).communicate()
     out = format_subprocess_stdout(out)
@@ -147,7 +172,11 @@ def p_branch_exists(branch):
 
 
 
+
+
 if __name__ == '__main__': # If you want to test something, place calls here.
     import os
     os.chdir('C:\\Users\\AXNCYB\\source\\repos\\cbxConverter')
     print_git_log_graph('issue25squash')
+
+    #show_ref('refs/heads/main')
