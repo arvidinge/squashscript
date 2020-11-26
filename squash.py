@@ -2,9 +2,12 @@ import sys
 import os
 import argparse
 import subprocess
+from gitplumbing import get_cur_branch, p_branch_exists, create_squash_branch, checkout_branch, \
+                        get_parent_commit, get_unique_commits, get_local_branch_list, \
+                        reset_soft_to, stash_pop, print_git_log_graph
 
-# https://schacon.github.io/git/git.html#_low_level_commands_plumbing
 CLIencoding = 'utf8'
+
 
 
 def run(args):
@@ -29,13 +32,13 @@ def run(args):
 
         if p_branch_exists(f'refs/remotes/origin/{branch}squash'):
             print(f'Squash branch for {branch} exists on remote.')
-            # Pull, Figure out new base commit, Rebase.   Conflicts? Think through...
-            raise NotImplementedError("Pull, Figure out new base commit, Rebase.   Conflicts? Think through...")
+            # 11: Pull, Figure out new base commit, Rebase.   Conflicts? Think through...
+            raise NotImplementedError("11: Pull, Figure out new base commit, Rebase.   Conflicts? Think through...")
             
         else:
             print(f'Squash branch for {branch} doesn\'t exist on remote.')
-            # Figure out new base commit, Rebase.
-            raise NotImplementedError("Figure out new base commit, Rebase.")
+            # 10: Figure out new base commit, Rebase.
+            raise NotImplementedError("10: Figure out new base commit, Rebase.")
 
     else:
 
@@ -43,12 +46,12 @@ def run(args):
 
         if p_branch_exists(f'refs/remotes/origin/{branch}squash'):
             print(f'Squash branch for {branch} exists on remote.')
-            # Pull, Figure out new base commit, Rebase.
-            raise NotImplementedError("Pull, Figure out new base commit, Rebase.")
+            # 01: Pull, Figure out new base commit, Rebase.
+            raise NotImplementedError("01: Pull, Figure out new base commit, Rebase.")
 
         else:
             print(f'Squash branch for {branch} doesn\'t exist on remote.')
-            # Create, Rebase.   Easy case, start with this.
+            # 00: Create branch, soft reset to first commit in squash, commit.   Easy case, start with this.
 
             squashbranch = create_squash_branch(branch)
             checkout_branch(squashbranch)
@@ -61,76 +64,11 @@ def run(args):
     
     # Restore workspace state
     checkout_branch(originalbranch)
-    git_stash_pop()
+    stash_pop()
 
     print_git_log_graph()
 
     print(f'NB: Recent commits at the bottom in above graph.\n')
-
-
-def git_stash_all():
-    subprocess.Popen(['git', 'stash', '--all']).communicate()
-
-def git_stash_pop():
-    subprocess.Popen(['git', 'stash', 'pop']).communicate()
-
-
-def reset_soft_to(base_commit, squashed_commits):
-    subprocess.Popen(['git', 'reset', '--soft', f'{base_commit}']).communicate()
-    subprocess.Popen(['git', 'commit', '-m', f'{construct_message(squashed_commits)}']).communicate()
-
-
-def construct_message(squashed_commits):
-    retstr = f'squash.py: Auto combined {len(squashed_commits)} commits: \r\n\r\n'
-    for i in range(len(squashed_commits) - 1):
-        retstr += f'{i+1}: {squashed_commits[i]} {get_commit_message(squashed_commits[i])}\r\n'
-    return retstr
-
-
-def get_commit_message(commitish):
-    out, err = subprocess.Popen(['git', 'rev-list', '--format=%B', '--max-count=1', f'{commitish}^'], stdout=subprocess.PIPE, stderr=subprocess.PIPE).communicate()
-    out = format_subprocess_stdout(out).splitlines() 
-    if type(out) is list:
-        return out[-1]
-
-
-def get_parent_commit(commitish):
-    out, err = subprocess.Popen(['git', 'rev-parse', '--short', f'{commitish}^'], stdout=subprocess.PIPE, stderr=subprocess.PIPE).communicate()
-    out = format_subprocess_stdout(out)
-    if len(out) > 7: # Normal
-        return out
-    return commitish # Initial commit has no parent
-    
-
-
-def checkout_branch(branch):
-    out, err = subprocess.Popen(['git', 'checkout', f'{branch}'], stdout=subprocess.PIPE, stderr=subprocess.PIPE).communicate()
-    if format_subprocess_stdout(out).startswith('error'):
-        print(format_subprocess_stdout(out))
-        print('Exiting.')
-        exit(-1)
-
-
-def create_squash_branch(branch):
-    subprocess.Popen(['git', 'branch', f'{branch}squash']).communicate()
-    return f'{branch}squash'
-
-
-def print_git_log_graph():
-    print()
-    out, err = subprocess.Popen(['git', '--no-pager', 'log', '--graph', '--abbrev-commit', '--decorate', "--format=format:%C(bold blue)%h%C(reset) - %C(bold green)(%ar)%C(reset) %C(white)%<(25,trunc)%s%C(reset) %C(dim white)- %an%C(reset)%C(bold yellow)%d%C(reset)", '--all'], stdout=subprocess.PIPE, stderr=None, shell=True).communicate()
-    out = format_subprocess_stdout(str(out, encoding=CLIencoding) + '\n')
-
-    graph = out.splitlines()
-    graph.reverse()
-
-    for i in range(len(graph)):
-        graph[i] = graph[i].replace('\\\\', '\\').replace('\\', '¤').replace('/', '\\').replace('¤', '/')
-
-    for line in graph:
-        print(line)
-
-    print()
 
 
 
@@ -176,22 +114,6 @@ def validate_and_format_args(repopath, branch, commit):
     return (repopath, branch, commit)
 
 
-def get_unique_commits(branch, branchlist):
-    locallist = branchlist.copy()
-    locallist.remove(branch)
-
-    command = ['git', 'rev-list', '--abbrev-commit', f'{branch}']
-
-    for branch_to_omit in locallist:
-        if branch_to_omit != f'{branch}squash':
-            command.append(f'^{branch_to_omit}') # Result: git rev-list branch_to_include ^branch_to_omit
-
-    out, err = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE).communicate()
-    out = format_subprocess_stdout(out)
-    
-    return out.splitlines()
-
-
 def print_processed_args(repo, branch, commit):
     print(f'\nREPO:\t{repo}')
     print(f'BRANCH:\t{branch}')
@@ -211,56 +133,6 @@ def parseargs(args):
     return parser.parse_args()
 
 
-def get_cur_branch():
-    '''Get the currently checked out Git branch in cwd.
-    
-    pre: cwd is a Git repository.
-    '''
-    out, err = subprocess.Popen(['git', 'symbolic-ref', 'HEAD'], stdout=subprocess.PIPE, stderr=subprocess.PIPE).communicate()
-
-    return format_subprocess_stdout(out)
-
-
-def get_local_branch_list():
-    '''Get a list of local Git branches in cwd.
-    
-    pre: cwd is a Git repository.
-    '''
-    out, err = subprocess.Popen(['git', 'show-ref', '--heads'], stdout=subprocess.PIPE, stderr=subprocess.PIPE).communicate()
-    out = format_subprocess_stdout(out)
-
-    branches = []
-    for sha_rev in out.splitlines():
-        sha, rev = sha_rev.split(' ')
-        branches.append(rev.replace(f'refs/heads/', ''))
-
-    return branches
-
-
-def p_branch_exists(branch):
-    out, err = subprocess.Popen(['git', 'show-ref', '--verify', f'{branch}'], stdout=subprocess.PIPE, stderr=subprocess.PIPE).communicate()
-    out = format_subprocess_stdout(out)
-
-    if out.endswith('squash'):
-        return True
-    return False
-
-
-def format_subprocess_stdout(stdout):
-    retstr = ''
-    for c in str(stdout).replace('\\n', '\n'):
-        retstr += c
-    retstr = retstr.split('b\'', 1)[-1]
-    retstr = retstr.rsplit('\'', 1)[0]
-    retstr = retstr.rsplit('\n', 1)[0]
-
-    return retstr
-
-
-def get_branch_name_from_ref(sha):
-    out, err = subprocess.Popen(['git', 'name-rev', f'{sha}'], stdout=subprocess.PIPE, stderr=subprocess.PIPE).communicate()
-
-    return format_subprocess_stdout(out)
 
 
 if __name__ == '__main__':
