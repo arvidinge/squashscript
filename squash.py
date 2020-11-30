@@ -3,7 +3,7 @@ import os
 import argparse
 import subprocess
 from gitplumbing import get_cur_branch, p_branch_exists, create_squash_branch, checkout_branch, \
-                        get_parent_commit, get_unique_commits, get_local_branch_list, \
+                        get_parent_commit, get_commits_since_last_fork, get_local_branch_list, \
                         reset_soft_to, stash_all, stash_pop, print_git_log_graph
 
 CLIencoding = 'utf8'
@@ -46,6 +46,7 @@ def run(args):
 
             if p_branch_exists(f'refs/remotes/origin/{branch}squash'):
                 print(f'Squash branch for {branch} exists on remote.')
+                
                 # 01: Pull, Figure out new base commit, Rebase.
                 raise NotImplementedError("01: Pull, Figure out new base commit, Rebase.")
 
@@ -53,11 +54,11 @@ def run(args):
                 print(f'Squash branch for {branch} doesn\'t exist on remote.')
                 # 00: Create branch, soft reset to parent of first commit in range, commit.   Easy case, start with this.
 
-                squashbranch = create_squash_branch(branch)
-                checkout_branch(squashbranch)
+                # squashbranch = create_squash_branch(branch)
+                # checkout_branch(squashbranch)
 
                 base_commit = get_parent_commit(commit)
-                commit_list = get_unique_commits(branch, get_local_branch_list())
+                commit_list = get_commits_since_last_fork(f'refs/heads/{branch}')
                 squashed_commits = commit_list[:commit_list.index(commit)+1]
                 
                 reset_soft_to(base_commit, squashed_commits)
@@ -92,13 +93,23 @@ def validate_and_format_args(repopath, branch, commit):
         exit(-1)
     
     if branch is 'DEFAULT':
-        branch = get_cur_branch()
+        branch = get_cur_branch().replace(f'refs/heads/', '')
+        print(f'Branch flag omitted, default branch (currently checked out): {branch}.')
+        while(True):
+            ans = input(f'Do you wish to squash {branch}? (y/n): ')
+            if ans.lower().strip() == 'y':
+                break
+            elif ans.lower().strip() == 'n':
+                print('Exiting.')
+                exit(0)
+            else:
+                print('Invalid input.')
 
     # if not branch.startswith('refs/heads/'): # arg to script can be "-b refs/heads/feature" or just "-b feature"
     branch = branch.replace(f'refs/heads/', '')
 
     if str(branch).endswith("squash"):
-        print(f'Currently checked out branch is a squash branch: {branch}. Exiting.')
+        print(f'Selected branch is a squash branch: {branch}. Exiting.')
         exit(-1)
 
     localbranches = get_local_branch_list()
@@ -106,16 +117,15 @@ def validate_and_format_args(repopath, branch, commit):
         print(f'{branch} is not a local branch. Exiting.')
         exit(-1)
 
-    branchcommits = get_unique_commits(branch, localbranches)
+    branchcommits = get_commits_since_last_fork(f'refs/heads/{branch}')
 
     if commit is 'DEFAULT':
         commit = branchcommits[-1] # Oldest unique commit ("bottom" of branch)
     
     if commit not in branchcommits:
-        print(f'{commit} is not a commit, or is not unique to branch {branch}. \nBranchcommits: {branchcommits}\nExiting.')
+        print(f'{commit} is either not a commit or is not unique to branch {branch}. \nBranchcommits: {branchcommits}\nExiting.')
         exit(-1)
     
-
     return (repopath, branch, commit)
 
 

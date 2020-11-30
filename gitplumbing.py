@@ -103,19 +103,53 @@ def print_git_log_graph(head_in_focus=None):
     print()
 
 
-def get_unique_commits(branch, branchlist):
-    locallist = branchlist.copy()
-    locallist.remove(branch)
+def get_commits_since_last_fork(branch):
 
-    command = ['git', 'rev-list', '--abbrev-commit', f'{branch}']
+    commitlist = []
+    sha = get_ref_sha(branch)
+    print(sha)
 
-    for branch_to_omit in locallist:
-        if branch_to_omit != f'{branch}squash':
-            command.append(f'^{branch_to_omit}') # Result: git rev-list branch_to_include ^branch_to_omit
+    command = ['git', '--no-pager', 'log', '--format=%H %P', '--all']
 
     out, err = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE).communicate()
     out = format_subprocess_stdout(out)
+    loglist = out.splitlines()
+
+    # While parent is not parent of two or more commits
+    while(True):
+
+        for i in range(0, len(loglist)):
+            # print(i)
+            m = re.match(rf'{sha} (?P<parent>[0-9a-fA-F]+)$', loglist[i])
+            if m is not None:
+                print(loglist[i])
+                commitlist.append(sha)
+                parent = m.group('parent')
+
+                sha = parent
+                # print(f'parent = {parent}')
+                break
+        # print(f'\"{sha}\"')
+
+        children = 0
+        for line in loglist:
+            match = re.findall(rf'^.* {sha}$', line)
+            if match != []:
+                print(f'  {match}')
+                children += 1
+        if children > 1:        
+            break
     
+    for commit in commitlist:
+        print(commit)
+    # print(commitlist)
+
+
+
+
+    # print(f'\"{loglist}\"') # DEBUG
+    exit() # DEBUG
+
     return out.splitlines()
 
 
@@ -155,7 +189,17 @@ def get_ref_shortsha(branch):
     out, err = subprocess.Popen(['git', 'show-ref', '--hash=7', f'{branch}'], stdout=subprocess.PIPE, stderr=subprocess.PIPE).communicate()
     out = format_subprocess_stdout(out)
     if len(out.splitlines()) > 1:
-        raise NotImplementedError(f'Multiple entries for \"git show-ref {branch}\".')
+        raise NotImplementedError(f'Multiple entries for \"git show-ref {branch}\":\n{out}')
+
+    if len(out) > 0:
+        return out
+    return None
+
+def get_ref_sha(branch):
+    out, err = subprocess.Popen(['git', 'show-ref', '--hash', f'{branch}'], stdout=subprocess.PIPE, stderr=subprocess.PIPE).communicate()
+    out = format_subprocess_stdout(out)
+    if len(out.splitlines()) > 1:
+        raise NotImplementedError(f'Multiple entries for \"git show-ref {branch}\":\n{out}')
 
     if len(out) > 0:
         return out
