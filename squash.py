@@ -4,8 +4,10 @@ import argparse
 import subprocess
 from gitplumbing import get_cur_branch, p_branch_exists, create_squash_branch, checkout_branch, \
                         get_parent_commit, get_commits_since_last_fork, get_local_branch_list, \
-                        reset_soft_to, reset_hard, stash_create, stash_apply, print_git_log_graph, \
-                        get_commits_in_range, pull
+                        reset_soft_to, reset_hard_to, stash_create, stash_apply, print_git_log_graph, \
+                        get_commits_in_range, pull, diff_tree, commit, construct_commit_message, \
+                        get_ref_sha
+
 
 encoding = 'utf8'
 
@@ -17,40 +19,71 @@ def run(args):
 
     repopath = vars(argsdict)['PATH']
     branch = vars(argsdict)['BRANCH']
-    commit = vars(argsdict)['COMMIT']
+    base_commit = vars(argsdict)['COMMIT']
 
-    repopath, branch, commit = validate_and_format_args(repopath, branch, commit)
-    print_processed_args(repopath, branch, commit)
+    repopath, branch, base_commit = validate_and_format_args(repopath, branch, base_commit)
+    print_processed_args(repopath, branch, base_commit)
 
     # Save to restore at exit
     stashid = stash_create()
     if stashid is not None:
-        reset_hard()
+        reset_hard_to()
     originalbranch = get_cur_branch().replace('refs/heads/','')
     checkout_branch(branch)
 
     try:
         if p_branch_exists(f'refs/heads/{branch}squash'):
-
             print(f'Squash branch for {branch} exists locally.')
 
             if p_branch_exists(f'refs/remotes/origin/{branch}squash'):
                 print(f'Squash branch for {branch} exists on remote.')
-                # 11: Pull, Figure out new base commit, Rebase.   Conflicts? Think through...
-                # dry run pull
-                #   if conflicts would arise:
-                #      raise Error
-                # pull
-                #
-                raise NotImplementedError("11: Pull, Figure out new base commit, Rebase.   Conflicts? Think through...")
+
+                if diff_tree(f'refs/heads/{branch}squash', f'refs/remotes/origin/{branch}squash') is not None:  # User should pull squash branch themselves.
+                    raise NotImplementedError(f'Branch \"{branch}\" differs from it\'s remote counterpart.')
+
+                # Case 10 code here
+                commit_list = get_commits_in_range(f'refs/heads/{branch}', base_commit) 
+                squashed_commits = commit_list[:commit_list.index(base_commit)] # base commit omitted
+
+                squashbranch = f'{branch}squash'
+                checkout_branch(squashbranch)
+
+                squash_original_tip = get_ref_sha(f'refs/heads/{squashbranch}')
+                reset_hard_to(base_commit)
+                reset_soft_to(squash_original_tip)
+                commit('Squash baseline')
+
+                squash_original_tip = get_ref_sha(f'refs/heads/{squashbranch}')
+                reset_hard_to(branch)
+                reset_soft_to(squash_original_tip)
+                commit(construct_commit_message(squashed_commits))
+
+                print_git_log_graph(squashbranch)
+                print(f'NB: Recent commits at the bottom in above graph.\n')
                 
             else:
                 print(f'Squash branch for {branch} doesn\'t exist on remote.')
                 # 10: Figure out new base commit, Rebase. Easy case
-                raise NotImplementedError("10: Figure out new base commit, Rebase.")
+                commit_list = get_commits_in_range(f'refs/heads/{branch}', base_commit) 
+                squashed_commits = commit_list[:commit_list.index(base_commit)] # base commit omitted
+
+                squashbranch = f'{branch}squash'
+                checkout_branch(squashbranch)
+
+                squash_original_tip = get_ref_sha(f'refs/heads/{squashbranch}')
+                reset_hard_to(base_commit)
+                reset_soft_to(squash_original_tip)
+                commit('Squash baseline')
+
+                squash_original_tip = get_ref_sha(f'refs/heads/{squashbranch}')
+                reset_hard_to(branch)
+                reset_soft_to(squash_original_tip)
+                commit(construct_commit_message(squashed_commits))
+
+                print_git_log_graph(squashbranch)
+                print(f'NB: Recent commits at the bottom in above graph.\n')
 
         else:
-
             print(f'Squash branch for {branch} doesn\'t exist locally.')
 
             if p_branch_exists(f'refs/remotes/origin/{branch}squash'):
@@ -63,28 +96,27 @@ def run(args):
                 print(f'Squash branch for {branch} doesn\'t exist on remote.')
                 # 00: Create branch, soft reset to parent of first commit in range, commit.   Easy case, start with this.
 
-                commit_list = get_commits_in_range(f'refs/heads/{branch}', commit) # you assume commit was not given
-                squashed_commits = commit_list[:commit_list.index(commit)+1] # base commit cannot be in this list.
+                commit_list = get_commits_in_range(f'refs/heads/{branch}', base_commit) 
+                squashed_commits = commit_list[:commit_list.index(base_commit)] # base commit omitted
 
                 squashbranch = create_squash_branch(branch)
                 checkout_branch(squashbranch)
-                reset_soft_to(commit, squashed_commits)
+                reset_soft_to(base_commit)
+                commit(construct_commit_message(squashed_commits))
 
                 print_git_log_graph(squashbranch)
+                print(f'NB: Recent commits at the bottom in above graph.\n')
                 
     except Exception as e:
         # Reset local repo to original state
         print(f'ERROR: {e}')
-        print('Manually ensure the repo has not been damaged. Not yet implemented programmatically.')
+        print('Manually ensure your workspace has not been damaged. Not yet implemented programmatically.')
         pass
     finally:
         # Restore workspace state
         checkout_branch(originalbranch)
         if stashid is not None:
             stash_apply(stashid)
-
-
-    print(f'NB: Recent commits at the bottom in above graph.\n')
 
 
 

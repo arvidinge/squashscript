@@ -28,25 +28,35 @@ def stash_apply(stashid):
     print('Applying stashed work...')
     subprocess.Popen(['git', 'stash', 'apply', f'{stashid}'], encoding=encoding).communicate()
 
+def commit(message):
+    subprocess.Popen(['git', 'commit', '-m', f'{message}'], encoding=encoding).communicate()
 
-def reset_soft_to(base_commit, squashed_commits):
-    subprocess.Popen(['git', 'reset', '--soft', f'{base_commit}'], encoding=encoding).communicate()
-    subprocess.Popen(['git', 'commit', '-m', f'{construct_commit_message(squashed_commits)}'], encoding=encoding).communicate()
+def reset_soft_to(ref):
+    subprocess.Popen(['git', 'reset', '--soft', f'{ref}'], encoding=encoding).communicate()
 
-def reset_hard(ref=None):
+def reset_hard_to(ref=None):
     command = ['git', 'reset', '--hard']
     if ref is not None:
         command.append(f'{ref}')
     subprocess.Popen(command, encoding=encoding).communicate()
 
-
 def pull():
     subprocess.Popen(['git', 'pull'], encoding=encoding).communicate()
 
 
+def diff_tree(a, b):
+    out, err = subprocess.Popen(['git', 'diff-tree', f'{a}..{b}'], encoding=encoding, stdout=subprocess.PIPE, stderr=subprocess.PIPE).communicate()
+    out = format_subprocess_stdout(out)
+    if out == '':
+        return None
+    if out.startswith('fatal'):
+        ChildProcessError(out)
+    return out
+
+
 def construct_commit_message(squashed_commits):
     retstr = f'squash.py: Auto combined {len(squashed_commits)} commits: \r\n\r\n'
-    for i in range(len(squashed_commits) - 1):
+    for i in range(len(squashed_commits)):
         retstr += f'{i+1}: {squashed_commits[i]} {get_commit_message(squashed_commits[i])}\r\n'
     return retstr
 
@@ -87,7 +97,7 @@ def print_git_log_graph(head_in_focus=None):
     out = format_subprocess_stdout(out + '\n')
 
     graph = out.splitlines()
-    graph.reverse()
+    graph.reverse() # New commits at the bottom
 
     # If head to focus graph display around given, truncate lines around it and emphasize head's line ( <<<<< ).
     # Else, focus graph on last line.
@@ -99,27 +109,22 @@ def print_git_log_graph(head_in_focus=None):
 
     focusindex = len(graph)-1
     for i in range(len(graph)):
-        graph[i] = graph[i].replace('\\\\', '\\').replace('\\', '¤').replace('/', '\\').replace('¤', '/') # Flip slashes after reverse
+        graph[i] = graph[i].replace('\\\\', '\\').replace('\\', '¤').replace('/', '\\').replace('¤', '/') # Flip slashes after reversing graph
 
-        # if head_in_focus != '' and re.match(rf'.*(?:HEAD\s-\>\s|\,\s|\(){head_in_focus}(?:\,\s|\)).*', graph[i]): # Line with the new squash commit
         if (head_short_sha is not None) and (head_short_sha in graph[i]): # Line with the new squash commit
-        # if head_in_focus != '' and re.match(rf'.*HEAD.*', graph[i]): # Line with the new squash commit
             focusindex = i
-            graph[i] += f'       <<<<< Squashed commit(s) to {head_in_focus}' # Emphasize the line
+            graph[i] += f'       <<<<<  Squashed commit(s) to {head_in_focus}' # Emphasize the line
 
-    endprintindex = (int(len(graph)) if abs(len(graph)-focusindex) < (maxlines/2) else int(focusindex+(maxlines/2)))
-    startprintindex = (0 if focusindex<(maxlines/2) else int(focusindex-abs(maxlines-abs(endprintindex-focusindex))))
+    endprintindex = (int(len(graph)) if abs(len(graph)-focusindex) < (maxlines/2) else int(focusindex+(maxlines/2)))  # Print maxlines/2 lines after head
+    startprintindex = (0 if focusindex<(maxlines/2) else int(focusindex-abs(maxlines-abs(endprintindex-focusindex))))  # Print maxlines/2 lines before head
     originalgraphlen = len(graph)
 
     graph = graph[startprintindex : endprintindex]
 
-    if not focusindex<(maxlines/2): # Start was truncated
+    if not focusindex < (maxlines/2): # Start was truncated
         print(f'GIT LOG GRAPH:\n...')
     for line in graph:
         print(line)
-    # print(f'originalgraphlen = {originalgraphlen}')
-    # print(f'focusindex = {focusindex}')
-    # print(f'(maxlines/2) = {(maxlines/2)}')
     if not abs(originalgraphlen-focusindex) < (maxlines/2): # End was truncated
         print(f'...')
 
@@ -173,11 +178,13 @@ def get_commits_since_last_fork(branch):
 
 
 def get_commits_in_range(branch, base_commit):
-    out, err = subprocess.Popen(['git', 'rev-list', 'branch'], encoding=encoding, stdout=subprocess.PIPE, stderr=subprocess.PIPE).communicate()
+    out, err = subprocess.Popen(['git', 'rev-list', f'{branch}'], encoding=encoding, stdout=subprocess.PIPE, stderr=subprocess.PIPE).communicate()
     out = format_subprocess_stdout(out)
     revlist = out.splitlines()
 
-    print(revlist)
+    revlist = revlist[:revlist.index(base_commit)+1]
+
+    return revlist
 
 
 def get_cur_branch():
@@ -221,6 +228,7 @@ def get_ref_shortsha(branch):
     if len(out) > 0:
         return out
     return None
+
 
 def get_ref_sha(branch):
     out, err = subprocess.Popen(['git', 'show-ref', '--hash', f'{branch}'], encoding=encoding, stdout=subprocess.PIPE, stderr=subprocess.PIPE).communicate()
