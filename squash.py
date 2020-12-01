@@ -32,9 +32,15 @@ def run(args):
         reset_hard_to()
     originalbranch = get_cur_branch().replace('refs/heads/','')
 
-    checkout_branch(branch)
+    
 
     try:
+        print(f'Checking out \'{branch}\'...')
+        if branch != get_cur_branch().replace('refs/heads/',''):
+            checkout_branch(branch)
+        else:
+            print(f'Already on branch \'{branch}\'.')
+
         if p_branch_exists(f'refs/heads/{branch}squash'):
             print(f'Squash branch for {branch} exists locally.')
 
@@ -97,7 +103,24 @@ def run(args):
                 
                 print(f'Squash branch for {branch} exists on remote.')
                 
-                raise NotImplementedError("01: Pull, Figure out new base commit, Rebase.")
+                squashbranch = f'{branch}squash'
+                checkout_branch(squashbranch)
+
+                commit_list = get_commits_in_range(f'refs/heads/{branch}', base_commit) 
+                squashed_commits = commit_list[:commit_list.index(base_commit)] # base commit omitted
+
+                squash_original_tip = get_ref_sha(f'refs/heads/{squashbranch}')
+                reset_hard_to(base_commit)
+                reset_soft_to(squash_original_tip)
+                commit('Diff baseline for following commit.')
+
+                squash_original_tip = get_ref_sha(f'refs/heads/{squashbranch}')
+                reset_hard_to(branch)
+                reset_soft_to(squash_original_tip)
+                commit(construct_commit_message(squashed_commits))
+
+                print_git_log_graph(squashbranch)
+                print(f'NB: Recent commits at the bottom in above graph.\n')
             
             # (0,0)
             else:  

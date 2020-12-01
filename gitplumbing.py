@@ -87,9 +87,7 @@ def checkout_branch(branch):
     print(f'Checking out branch \"{branch}\".')
     out, err = subprocess.Popen(['git', 'checkout', f'{branch}'], encoding=encoding, stdout=subprocess.PIPE, stderr=subprocess.PIPE).communicate()
     if format_subprocess_stdout(out).startswith('error'):
-        print(format_subprocess_stdout(out))
-        print('Exiting.')
-        exit(-1)
+        raise ChildProcessError(format_subprocess_stdout(out))
 
 
 def create_squash_branch(branch):
@@ -256,7 +254,9 @@ def p_branch_exists(branch):
     return False
 
 def fetch():
+    print('Fetching...')
     out, err = subprocess.Popen(['git', 'fetch'], encoding=encoding, stdout=subprocess.PIPE, stderr=subprocess.PIPE).communicate()
+    print(out)
     if err != '':
         raise ChildProcessError(err)
 
