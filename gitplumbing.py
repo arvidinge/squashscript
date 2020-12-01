@@ -13,16 +13,28 @@ from time import sleep
 encoding = 'utf8'
 
 
-def stash_all():
-    subprocess.Popen(['git', 'stash', '--all'], encoding=encoding).communicate()
+def stash_create():
+    print('Stashing your work...')
+    out, err = subprocess.Popen(['git', 'stash', 'create'], encoding=encoding, stdout=subprocess.PIPE, stderr=subprocess.PIPE).communicate()
+    stashid = format_subprocess_stdout(out)
+    print(f'STASH ID: {stashid}')
+    return stashid
 
-def stash_pop():
-    subprocess.Popen(['git', 'stash', 'pop'], encoding=encoding).communicate()
+def stash_apply(stashid):
+    print('Applying stashed work...')
+    subprocess.Popen(['git', 'stash', 'apply', f'{stashid}'], encoding=encoding).communicate()
 
 
 def reset_soft_to(base_commit, squashed_commits):
     subprocess.Popen(['git', 'reset', '--soft', f'{base_commit}'], encoding=encoding).communicate()
     subprocess.Popen(['git', 'commit', '-m', f'{construct_commit_message(squashed_commits)}'], encoding=encoding).communicate()
+
+
+def reset_hard(ref=None):
+    command = ['git', 'reset', '--hard']
+    if ref is not None:
+        command.append(f'{ref}')
+    subprocess.Popen(command, encoding=encoding).communicate()
 
 
 def construct_commit_message(squashed_commits):

@@ -4,7 +4,7 @@ import argparse
 import subprocess
 from gitplumbing import get_cur_branch, p_branch_exists, create_squash_branch, checkout_branch, \
                         get_parent_commit, get_commits_since_last_fork, get_local_branch_list, \
-                        reset_soft_to, stash_all, stash_pop, print_git_log_graph
+                        reset_soft_to, reset_hard, stash_create, stash_apply, print_git_log_graph
 
 encoding = 'utf8'
 
@@ -22,7 +22,8 @@ def run(args):
     print_processed_args(repopath, branch, commit)
 
     # Save to restore at exit
-    stash_all() 
+    stashid = stash_create()
+    reset_hard()
     originalbranch = get_cur_branch().replace('refs/heads/','')
     checkout_branch(branch)
 
@@ -70,7 +71,7 @@ def run(args):
     finally:
         # Restore workspace state
         checkout_branch(originalbranch)
-        stash_pop()
+        stash_apply(stashid)
 
     print_git_log_graph(squashbranch)
 
