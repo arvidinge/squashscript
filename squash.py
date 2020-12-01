@@ -6,7 +6,7 @@ from gitplumbing import get_cur_branch, p_branch_exists, create_squash_branch, c
                         get_parent_commit, get_commits_since_last_fork, get_local_branch_list, \
                         reset_soft_to, reset_hard_to, stash_create, stash_apply, print_git_log_graph, \
                         get_commits_in_range, pull, diff_tree, commit, construct_commit_message, \
-                        get_ref_sha
+                        get_ref_sha, fetch
 
 
 encoding = 'utf8'
@@ -24,24 +24,29 @@ def run(args):
     repopath, branch, base_commit = validate_and_format_args(repopath, branch, base_commit)
     print_processed_args(repopath, branch, base_commit)
 
+    fetch() # needed?
+
     # Save to restore at exit
     stashid = stash_create()
     if stashid is not None:
         reset_hard_to()
     originalbranch = get_cur_branch().replace('refs/heads/','')
+
     checkout_branch(branch)
 
     try:
         if p_branch_exists(f'refs/heads/{branch}squash'):
             print(f'Squash branch for {branch} exists locally.')
 
-            if p_branch_exists(f'refs/remotes/origin/{branch}squash'):
+            # (local,remote)
+            # (1,1)
+            if p_branch_exists(f'refs/remotes/origin/{branch}squash'):  
                 print(f'Squash branch for {branch} exists on remote.')
 
                 if diff_tree(f'refs/heads/{branch}squash', f'refs/remotes/origin/{branch}squash') is not None:  # User should pull squash branch themselves.
                     raise NotImplementedError(f'Branch \"{branch}\" differs from it\'s remote counterpart.')
 
-                # Case 10 code here
+                # same as case (1,0) at this point.
                 commit_list = get_commits_in_range(f'refs/heads/{branch}', base_commit) 
                 squashed_commits = commit_list[:commit_list.index(base_commit)] # base commit omitted
 
@@ -51,7 +56,7 @@ def run(args):
                 squash_original_tip = get_ref_sha(f'refs/heads/{squashbranch}')
                 reset_hard_to(base_commit)
                 reset_soft_to(squash_original_tip)
-                commit('Squash baseline')
+                commit('Diff baseline for following commit.')
 
                 squash_original_tip = get_ref_sha(f'refs/heads/{squashbranch}')
                 reset_hard_to(branch)
@@ -60,10 +65,11 @@ def run(args):
 
                 print_git_log_graph(squashbranch)
                 print(f'NB: Recent commits at the bottom in above graph.\n')
-                
-            else:
+
+            # (1,0)
+            else:  
                 print(f'Squash branch for {branch} doesn\'t exist on remote.')
-                # 10: Figure out new base commit, Rebase. Easy case
+
                 commit_list = get_commits_in_range(f'refs/heads/{branch}', base_commit) 
                 squashed_commits = commit_list[:commit_list.index(base_commit)] # base commit omitted
 
@@ -73,7 +79,7 @@ def run(args):
                 squash_original_tip = get_ref_sha(f'refs/heads/{squashbranch}')
                 reset_hard_to(base_commit)
                 reset_soft_to(squash_original_tip)
-                commit('Squash baseline')
+                commit('Diff baseline for following commit.')
 
                 squash_original_tip = get_ref_sha(f'refs/heads/{squashbranch}')
                 reset_hard_to(branch)
@@ -85,16 +91,17 @@ def run(args):
 
         else:
             print(f'Squash branch for {branch} doesn\'t exist locally.')
-
-            if p_branch_exists(f'refs/remotes/origin/{branch}squash'):
+            
+            # (0,1)
+            if p_branch_exists(f'refs/remotes/origin/{branch}squash'):  
+                
                 print(f'Squash branch for {branch} exists on remote.')
                 
-                # 01: Pull, Figure out new base commit, Rebase.
                 raise NotImplementedError("01: Pull, Figure out new base commit, Rebase.")
-
-            else:
+            
+            # (0,0)
+            else:  
                 print(f'Squash branch for {branch} doesn\'t exist on remote.')
-                # 00: Create branch, soft reset to parent of first commit in range, commit.   Easy case, start with this.
 
                 commit_list = get_commits_in_range(f'refs/heads/{branch}', base_commit) 
                 squashed_commits = commit_list[:commit_list.index(base_commit)] # base commit omitted

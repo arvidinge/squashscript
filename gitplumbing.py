@@ -24,24 +24,31 @@ def stash_create():
         print(f'STASH ID: {stashid}')
     return stashid
 
+
 def stash_apply(stashid):
     print('Applying stashed work...')
-    subprocess.Popen(['git', 'stash', 'apply', f'{stashid}'], encoding=encoding).communicate()
+    out, err = subprocess.Popen(['git', 'stash', 'apply', f'{stashid}'], encoding=encoding, stdout=subprocess.PIPE, stderr=subprocess.PIPE).communicate()
+
 
 def commit(message):
-    subprocess.Popen(['git', 'commit', '-m', f'{message}'], encoding=encoding).communicate()
+    out, err = subprocess.Popen(['git', 'commit', '-m', f'{message}'], encoding=encoding, stdout=subprocess.PIPE, stderr=subprocess.PIPE).communicate()
+
 
 def reset_soft_to(ref):
-    subprocess.Popen(['git', 'reset', '--soft', f'{ref}'], encoding=encoding).communicate()
+    out, err = subprocess.Popen(['git', 'reset', '--soft', f'{ref}'], encoding=encoding, stdout=subprocess.PIPE, stderr=subprocess.PIPE).communicate()
+
 
 def reset_hard_to(ref=None):
     command = ['git', 'reset', '--hard']
     if ref is not None:
         command.append(f'{ref}')
-    subprocess.Popen(command, encoding=encoding).communicate()
+    out, err = subprocess.Popen(command, encoding=encoding, stdout=subprocess.PIPE, stderr=subprocess.PIPE).communicate()
+
 
 def pull():
-    subprocess.Popen(['git', 'pull'], encoding=encoding).communicate()
+    out, err = subprocess.Popen(['git', 'pull'], encoding=encoding, stdout=subprocess.PIPE, stderr=subprocess.PIPE).communicate()
+    if err != '':
+        raise ChildProcessError(err)
 
 
 def diff_tree(a, b):
@@ -127,7 +134,6 @@ def print_git_log_graph(head_in_focus=None):
         print(line)
     if not abs(originalgraphlen-focusindex) < (maxlines/2): # End was truncated
         print(f'...')
-
     print()
 
 
@@ -249,7 +255,10 @@ def p_branch_exists(branch):
         return True
     return False
 
-
+def fetch():
+    out, err = subprocess.Popen(['git', 'fetch'], encoding=encoding, stdout=subprocess.PIPE, stderr=subprocess.PIPE).communicate()
+    if err != '':
+        raise ChildProcessError(err)
 
 
 
