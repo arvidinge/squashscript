@@ -6,7 +6,7 @@ from gitplumbing import get_cur_branch, p_branch_exists, create_squash_branch, c
                         get_parent_commit, get_commits_since_last_fork, get_local_branch_list, \
                         reset_soft_to, stash_all, stash_pop, print_git_log_graph
 
-CLIencoding = 'utf8'
+encoding = 'utf8'
 
 
 
@@ -54,18 +54,18 @@ def run(args):
                 print(f'Squash branch for {branch} doesn\'t exist on remote.')
                 # 00: Create branch, soft reset to parent of first commit in range, commit.   Easy case, start with this.
 
-                # squashbranch = create_squash_branch(branch)
-                # checkout_branch(squashbranch)
+                squashbranch = create_squash_branch(branch)
+                checkout_branch(squashbranch)
 
-                base_commit = get_parent_commit(commit)
                 commit_list = get_commits_since_last_fork(f'refs/heads/{branch}')
                 squashed_commits = commit_list[:commit_list.index(commit)+1]
                 
-                reset_soft_to(base_commit, squashed_commits)
-    except:
+                reset_soft_to(commit, squashed_commits)
+                
+    except Exception as e:
         # Reset local repo to original state
-        print('Error raised!')
-        print('RESET THE REPO TO ORIGINAL STATE! Not yet implemented programmatically.')
+        print(f'ERROR: {e}')
+        print('Manually ensure the repo has not been damaged. Not yet implemented programmatically.')
         pass
     finally:
         # Restore workspace state
@@ -86,11 +86,11 @@ def validate_and_format_args(repopath, branch, commit):
         os.chdir(repopath)
     except FileNotFoundError:
         print(f'{repopath} is not a valid path. Exiting.')
-        exit(-1)
+        exit(0)
     
     if '.git' not in os.listdir():
         print(f'{os.getcwd()} is not a Git repository. Exiting.')
-        exit(-1)
+        exit(0)
     
     if branch is 'DEFAULT':
         branch = get_cur_branch().replace(f'refs/heads/', '')
@@ -105,26 +105,31 @@ def validate_and_format_args(repopath, branch, commit):
             else:
                 print('Invalid input.')
 
-    # if not branch.startswith('refs/heads/'): # arg to script can be "-b refs/heads/feature" or just "-b feature"
+    # arg to script can be "-b refs/heads/feature" or just "-b feature"
     branch = branch.replace(f'refs/heads/', '')
 
     if str(branch).endswith("squash"):
         print(f'Selected branch is a squash branch: {branch}. Exiting.')
-        exit(-1)
+        exit(0)
 
     localbranches = get_local_branch_list()
     if branch not in localbranches:
         print(f'{branch} is not a local branch. Exiting.')
-        exit(-1)
+        exit(0)
 
     branchcommits = get_commits_since_last_fork(f'refs/heads/{branch}')
+    if branchcommits == []:
+        print('No commits to squash since last merge/fork. Exiting.')
+        exit(0)
 
     if commit is 'DEFAULT':
-        commit = branchcommits[-1] # Oldest unique commit ("bottom" of branch)
+        commit = get_parent_commit(branchcommits[-1]) # "Fork" commit ("base" of branch)
+        if commit is None: # Initial commit has no parent
+            commit = branchcommits[-1]
     
-    if commit not in branchcommits:
-        print(f'{commit} is either not a commit or is not unique to branch {branch}. \nBranchcommits: {branchcommits}\nExiting.')
-        exit(-1)
+    # if commit not in branchcommits:
+    #     print(f'{commit} is either not a commit or is not unique to branch {branch}. \nBranchcommits: {branchcommits}\nExiting.')
+    #     exit(-1)
     
     return (repopath, branch, commit)
 
@@ -143,7 +148,7 @@ def parseargs(args):
     
     parser.add_argument('-p', type=str, dest='PATH', default='DEFAULT', help='Path to the repo.\nDefault: Current working directory (place and run squash.py in the repo).')
     parser.add_argument('-b', type=str, dest='BRANCH', default='DEFAULT', help='The branch for which a complementary squash branch will be created (if one doesn\'t exist), and from which commits will be squashed. Default: currently checked out branch.')
-    parser.add_argument('-c', type=str, dest='COMMIT', default='DEFAULT', help='Commitish of the first commit to be included in squash. Default: The child of the most recent commit that is not unique to the branch specified by -b.')
+    parser.add_argument('-c', type=str, dest='COMMIT', default='DEFAULT', help='Commitish of the parent of the first commit to be included in squash. Last commit before any changes to be reviewed were introduced. Default: The most recent commit reachable from [BRANCH] that has two or more children (most recent "fork").')
 
     return parser.parse_args()
 
