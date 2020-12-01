@@ -118,8 +118,10 @@ def validate_and_format_args(repopath, branch, commit):
         exit(0)
 
     branchcommits = get_commits_since_last_fork(f'refs/heads/{branch}')
-    if branchcommits == []:
-        print('No commits to squash since last merge/fork. Exiting.')
+    if len(branchcommits) < 2:
+        print(f'Fewer than two commits selected for squash. Commit list:')
+        print(f'{branchcommits}')
+        print(f'Exiting.')
         exit(0)
 
     if commit is 'DEFAULT':
