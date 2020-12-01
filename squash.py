@@ -24,6 +24,7 @@ def run(args):
     # Save to restore at exit
     stash_all() 
     originalbranch = get_cur_branch().replace('refs/heads/','')
+    checkout_branch(branch)
 
     try:
         if p_branch_exists(f'refs/heads/{branch}squash'):
@@ -54,12 +55,11 @@ def run(args):
                 print(f'Squash branch for {branch} doesn\'t exist on remote.')
                 # 00: Create branch, soft reset to parent of first commit in range, commit.   Easy case, start with this.
 
+                commit_list = get_commits_since_last_fork(f'refs/heads/{branch}') # you assume commit was not given
+                squashed_commits = commit_list[:commit_list.index(commit)+1] # base commit cannot be in this list.
+
                 squashbranch = create_squash_branch(branch)
                 checkout_branch(squashbranch)
-
-                commit_list = get_commits_since_last_fork(f'refs/heads/{branch}')
-                squashed_commits = commit_list[:commit_list.index(commit)+1]
-                
                 reset_soft_to(commit, squashed_commits)
                 
     except Exception as e:

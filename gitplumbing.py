@@ -40,9 +40,9 @@ def get_commit_message(commitish):
 
 
 def get_parent_commit(commitish):
-    out, err = subprocess.Popen(['git', 'rev-parse', '--short', f'{commitish}^'], encoding=encoding, stdout=subprocess.PIPE, stderr=subprocess.PIPE).communicate()
+    out, err = subprocess.Popen(['git', 'rev-parse', f'{commitish}^'], encoding=encoding, stdout=subprocess.PIPE, stderr=subprocess.PIPE).communicate()
     out = format_subprocess_stdout(out)
-    if len(out) > 7: # Normal
+    if len(out) >= 7: # Normal
         return out
     return None # Initial commit has no parent
     
@@ -56,6 +56,7 @@ def checkout_branch(branch):
 
 
 def create_squash_branch(branch):
+    print(f'Creating squash branch \"{branch}squash\"...')
     subprocess.Popen(['git', 'branch', f'{branch}squash'], encoding=encoding).communicate()
     return f'{branch}squash'
 
