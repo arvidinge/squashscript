@@ -62,9 +62,12 @@ def diff_tree(a, b):
 
 
 def construct_commit_message(squashed_commits):
-    retstr = f'squash.py: Auto combined {len(squashed_commits)} commits: \r\n\r\n'
-    for i in range(len(squashed_commits)):
-        retstr += f'{i+1}: {squashed_commits[i]} {get_commit_message(squashed_commits[i])}\r\n'
+    commitlist = squashed_commits.copy()
+    commitlist.reverse()
+
+    retstr = f'squash.py: Auto combined {len(commitlist)} commits: \r\n\r\n'
+    for i in range(len(commitlist)):
+        retstr += f'{i+1}: {commitlist[i]} {get_commit_message(commitlist[i])}\r\n'
     return retstr
 
 
@@ -223,26 +226,35 @@ def get_branch_name_from_ref(sha):
     return format_subprocess_stdout(out)
 
 
-def get_ref_shortsha(branch):
-    out, err = subprocess.Popen(['git', 'show-ref', '--hash=7', f'{branch}'], encoding=encoding, stdout=subprocess.PIPE, stderr=subprocess.PIPE).communicate()
+def get_ref_shortsha(ref):
+    out, err = subprocess.Popen(['git', 'show-ref', '--hash=7', f'{ref}'], encoding=encoding, stdout=subprocess.PIPE, stderr=subprocess.PIPE).communicate()
     out = format_subprocess_stdout(out)
     if len(out.splitlines()) > 1:
-        raise NotImplementedError(f'Multiple entries for \"git show-ref {branch}\":\n{out}')
+        raise NotImplementedError(f'Multiple entries for \"git show-ref {ref}\":\n{out}')
 
     if len(out) > 0:
         return out
     return None
 
 
-def get_ref_sha(branch):
-    out, err = subprocess.Popen(['git', 'show-ref', '--hash', f'{branch}'], encoding=encoding, stdout=subprocess.PIPE, stderr=subprocess.PIPE).communicate()
+def get_ref_sha(ref):
+    out, err = subprocess.Popen(['git', 'show-ref', '--hash', f'{ref}'], encoding=encoding, stdout=subprocess.PIPE, stderr=subprocess.PIPE).communicate()
     out = format_subprocess_stdout(out)
     if len(out.splitlines()) > 1:
-        raise NotImplementedError(f'Multiple entries for \"git show-ref {branch}\":\n{out}')
+        raise NotImplementedError(f'Multiple entries for \"git show-ref {ref}\":\n{out}')
 
     if len(out) > 0:
         return out
     return None
+
+
+def get_long_sha(short_sha):
+    out, err = subprocess.Popen(['git', 'rev-parse', f'{short_sha}'], encoding=encoding, stdout=subprocess.PIPE, stderr=subprocess.PIPE).communicate()
+    out = format_subprocess_stdout(out)
+    if len(out) < 40:
+        raise ChildProcessError(out)
+    
+    return out
 
 
 def p_branch_exists(branch):

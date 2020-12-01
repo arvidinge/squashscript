@@ -11,7 +11,8 @@
             "program": "${file}",
             "console": "integratedTerminal",
             
-            "args": ["-p", "C:/Users/AXNCYB/source/repos/cbxConverter", "-b", "issue25"]
+            // use for debugging
+            // "args": ["-p", "C:/Users/AXNCYB/source/repos/cbxConverter", "-b", "issue25", "-c", "e51968a"] // 
         }
     ]
 }

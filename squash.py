@@ -6,7 +6,7 @@ from gitplumbing import get_cur_branch, p_branch_exists, create_squash_branch, c
                         get_parent_commit, get_commits_since_last_fork, get_local_branch_list, \
                         reset_soft_to, reset_hard_to, stash_create, stash_apply, print_git_log_graph, \
                         get_commits_in_range, pull, diff_tree, commit, construct_commit_message, \
-                        get_ref_sha, fetch
+                        get_ref_sha, fetch, get_long_sha
 
 
 encoding = 'utf8'
@@ -200,6 +200,8 @@ def validate_and_format_args(repopath, branch, commit):
         commit = get_parent_commit(branchcommits[-1]) # "Fork" commit ("base" of branch)
         if commit is None: # Initial commit has no parent
             commit = branchcommits[-1]
+    elif len(commit) < 40:
+        commit = get_long_sha(commit)
     
     # if commit not in branchcommits:
     #     print(f'{commit} is either not a commit or is not unique to branch {branch}. \nBranchcommits: {branchcommits}\nExiting.')
