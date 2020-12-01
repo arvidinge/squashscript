@@ -57,7 +57,7 @@ def diff_tree(a, b):
     if out == '':
         return None
     if out.startswith('fatal'):
-        ChildProcessError(out)
+        raise ChildProcessError(out)
     return out
 
 
