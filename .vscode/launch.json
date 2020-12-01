@@ -11,7 +11,7 @@
             "program": "${file}",
             "console": "integratedTerminal",
             
-            "args": ["-b", "temp"]
+            "args": ["-p", "C:/Users/AXNCYB/source/repos/cbxConverter", "-b", "issue25"]
         }
     ]
 }

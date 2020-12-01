@@ -17,7 +17,11 @@ def stash_create():
     print('Stashing your work...')
     out, err = subprocess.Popen(['git', 'stash', 'create'], encoding=encoding, stdout=subprocess.PIPE, stderr=subprocess.PIPE).communicate()
     stashid = format_subprocess_stdout(out)
-    print(f'STASH ID: {stashid}')
+    if stashid == '':
+        print('No local changes to stash.')
+        stashid = None
+    else:
+        print(f'STASH ID: {stashid}')
     return stashid
 
 def stash_apply(stashid):
@@ -29,12 +33,15 @@ def reset_soft_to(base_commit, squashed_commits):
     subprocess.Popen(['git', 'reset', '--soft', f'{base_commit}'], encoding=encoding).communicate()
     subprocess.Popen(['git', 'commit', '-m', f'{construct_commit_message(squashed_commits)}'], encoding=encoding).communicate()
 
-
 def reset_hard(ref=None):
     command = ['git', 'reset', '--hard']
     if ref is not None:
         command.append(f'{ref}')
     subprocess.Popen(command, encoding=encoding).communicate()
+
+
+def pull():
+    subprocess.Popen(['git', 'pull'], encoding=encoding).communicate()
 
 
 def construct_commit_message(squashed_commits):
@@ -60,6 +67,7 @@ def get_parent_commit(commitish):
     
 
 def checkout_branch(branch):
+    print(f'Checking out branch \"{branch}\".')
     out, err = subprocess.Popen(['git', 'checkout', f'{branch}'], encoding=encoding, stdout=subprocess.PIPE, stderr=subprocess.PIPE).communicate()
     if format_subprocess_stdout(out).startswith('error'):
         print(format_subprocess_stdout(out))
@@ -162,6 +170,14 @@ def get_commits_since_last_fork(branch):
             break
 
     return commitlist
+
+
+def get_commits_in_range(branch, base_commit):
+    out, err = subprocess.Popen(['git', 'rev-list', 'branch'], encoding=encoding, stdout=subprocess.PIPE, stderr=subprocess.PIPE).communicate()
+    out = format_subprocess_stdout(out)
+    revlist = out.splitlines()
+
+    print(revlist)
 
 
 def get_cur_branch():

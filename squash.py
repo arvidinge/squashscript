@@ -4,7 +4,8 @@ import argparse
 import subprocess
 from gitplumbing import get_cur_branch, p_branch_exists, create_squash_branch, checkout_branch, \
                         get_parent_commit, get_commits_since_last_fork, get_local_branch_list, \
-                        reset_soft_to, reset_hard, stash_create, stash_apply, print_git_log_graph
+                        reset_soft_to, reset_hard, stash_create, stash_apply, print_git_log_graph, \
+                        get_commits_in_range, pull
 
 encoding = 'utf8'
 
@@ -23,7 +24,8 @@ def run(args):
 
     # Save to restore at exit
     stashid = stash_create()
-    reset_hard()
+    if stashid is not None:
+        reset_hard()
     originalbranch = get_cur_branch().replace('refs/heads/','')
     checkout_branch(branch)
 
@@ -35,11 +37,16 @@ def run(args):
             if p_branch_exists(f'refs/remotes/origin/{branch}squash'):
                 print(f'Squash branch for {branch} exists on remote.')
                 # 11: Pull, Figure out new base commit, Rebase.   Conflicts? Think through...
+                # dry run pull
+                #   if conflicts would arise:
+                #      raise Error
+                # pull
+                #
                 raise NotImplementedError("11: Pull, Figure out new base commit, Rebase.   Conflicts? Think through...")
                 
             else:
                 print(f'Squash branch for {branch} doesn\'t exist on remote.')
-                # 10: Figure out new base commit, Rebase.
+                # 10: Figure out new base commit, Rebase. Easy case
                 raise NotImplementedError("10: Figure out new base commit, Rebase.")
 
         else:
@@ -56,12 +63,14 @@ def run(args):
                 print(f'Squash branch for {branch} doesn\'t exist on remote.')
                 # 00: Create branch, soft reset to parent of first commit in range, commit.   Easy case, start with this.
 
-                commit_list = get_commits_since_last_fork(f'refs/heads/{branch}') # you assume commit was not given
+                commit_list = get_commits_in_range(f'refs/heads/{branch}', commit) # you assume commit was not given
                 squashed_commits = commit_list[:commit_list.index(commit)+1] # base commit cannot be in this list.
 
                 squashbranch = create_squash_branch(branch)
                 checkout_branch(squashbranch)
                 reset_soft_to(commit, squashed_commits)
+
+                print_git_log_graph(squashbranch)
                 
     except Exception as e:
         # Reset local repo to original state
@@ -71,9 +80,9 @@ def run(args):
     finally:
         # Restore workspace state
         checkout_branch(originalbranch)
-        stash_apply(stashid)
+        if stashid is not None:
+            stash_apply(stashid)
 
-    print_git_log_graph(squashbranch)
 
     print(f'NB: Recent commits at the bottom in above graph.\n')
 
