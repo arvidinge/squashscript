@@ -72,8 +72,9 @@ def construct_commit_message(squashed_commits):
 
 
 def get_commit_message(commitish):
-    out, err = subprocess.Popen(['git', 'rev-list', '--format=%B', '--max-count=1', f'{commitish}^'], encoding=encoding, stdout=subprocess.PIPE, stderr=subprocess.PIPE).communicate()
-    out = format_subprocess_stdout(out).splitlines() 
+    out, err = subprocess.Popen(['git', 'rev-list', '--format=%B', '--max-count=1', f'{commitish}'], encoding=encoding, stdout=subprocess.PIPE, stderr=subprocess.PIPE).communicate()
+    out = format_subprocess_stdout(out).splitlines()
+    print(out)
     if type(out) is list:
         return out[-1]
 
@@ -276,7 +277,9 @@ def fetch():
 
 if __name__ == '__main__': # If you want to test something, place calls here.
     import os
-    os.chdir('C:\\Users\\AXNCYB\\source\\repos\\cbxConverter')
-    print_git_log_graph('issue25squash')
+    # os.chdir('C:\\Users\\AXNCYB\\source\\repos\\cbxConverter')
+
+    print(get_commit_message('dba9f81'))
+    
 
     #show_ref('refs/heads/main')
