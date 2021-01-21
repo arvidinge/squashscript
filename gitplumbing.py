@@ -74,7 +74,7 @@ def construct_commit_message(squashed_commits):
 def get_commit_message(commitish):
     out, err = subprocess.Popen(['git', 'rev-list', '--format=%B', '--max-count=1', f'{commitish}'], encoding=encoding, stdout=subprocess.PIPE, stderr=subprocess.PIPE).communicate()
     out = format_subprocess_stdout(out).splitlines()
-    print(out)
+    
     if type(out) is list:
         return out[-1]
 
